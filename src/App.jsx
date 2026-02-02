@@ -1,45 +1,70 @@
-import React, { useState } from "react";
-import { airdropToken } from "./utils/solana";
-import { getDeviceInfo, getIP } from "./utils/security";
+import React, { useMemo, useCallback } from "react";
+import {
+  ConnectionProvider,
+  WalletProvider,
+  useWallet
+} from "@solana/wallet-adapter-react";
+import {
+  WalletModalProvider,
+  WalletMultiButton
+} from "@solana/wallet-adapter-react-ui";
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter
+} from "@solana/wallet-adapter-wallets";
 
-export default function App() {
-  const [wallet, setWallet] = useState(null);
-  const [status, setStatus] = useState("");
+import { Connection, clusterApiUrl, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import "@solana/wallet-adapter-react-ui/styles.css";
 
-  const connectWallet = async () => {
-    if (window.solana && window.solana.isPhantom) {
-      try {
-        const resp = await window.solana.connect();
-        setWallet(resp.publicKey.toString());
-        setStatus("Wallet connected: " + resp.publicKey.toString());
-      } catch (err) {
-        setStatus("Wallet connection failed");
-      }
-    } else {
-      setStatus("Phantom wallet not found");
+// Komponen untuk claim token
+function AirdropButton() {
+  const { publicKey } = useWallet();
+
+  const claim = useCallback(async () => {
+    if (!publicKey) {
+      alert("Connect wallet dulu!");
+      return;
     }
-  };
-
-  const registerAndClaim = async () => {
-    const device = getDeviceInfo();
-    const ip = await getIP();
-
-    setStatus(`Registering... Device: ${device}, IP: ${ip}`);
-
-    if (wallet) {
-      await airdropToken(wallet);
-      setStatus("Token claimed successfully!");
-    } else {
-      setStatus("Please connect wallet first");
+    try {
+      const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+      const sig = await connection.requestAirdrop(publicKey, 0.1 * LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(sig, "confirmed");
+      alert("Airdrop sukses ke: " + publicKey.toBase58());
+    } catch (err) {
+      console.error(err);
+      alert("Airdrop gagal");
     }
-  };
+  }, [publicKey]);
 
   return (
-    <div className="container">
-      <h1>ColwSolana Airdrop</h1>
-      <p>{status}</p>
-      <button onClick={connectWallet}>Connect Wallet</button>
-      <button onClick={registerAndClaim}>Register & Claim Token</button>
-    </div>
+    <button onClick={claim} disabled={!publicKey}>
+      Claim Token
+    </button>
+  );
+}
+
+export default function App() {
+  const endpoint = clusterApiUrl("devnet");
+
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter({ network: "devnet" })
+    ],
+    []
+  );
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <div className="container">
+            <h1>ColwSolana Airdrop</h1>
+            <WalletMultiButton />
+            <AirdropButton />
+          </div>
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
   );
 }
