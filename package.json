@@ -15,11 +15,5 @@
     "@solana/wallet-adapter-base": "^0.9.22",
     "@solana/wallet-adapter-wallets": "^0.19.19",
     "@solana/wallet-adapter-react-ui": "^0.9.31"
-  },
-  "devDependencies": {
-    "dependencies": {
-  "vite": "^5.0.0",
-}
-
   }
 }
